@@ -21,6 +21,7 @@ import { PatientTabs } from "@/components/patient/PatientTabs";
 import { Chatbot } from "@/components/patient/Chatbot";
 import { MapButton } from "@/components/patient/MapButton";
 import { MOCK_CHILDREN, MOCK_APPOINTMENTS, MOCK_VACCINATION_HISTORY } from "@/lib/mockData";
+import { VaccineAssistant } from "@/components/VaccineAssistant";
 
 // Add this constant at the top of your file, outside the component
 const DOCTORS = [
@@ -713,10 +714,12 @@ const ParentDashboard = () => {
         </div>
       </main>
       
-      <Chatbot />
+      {/* <Chatbot /> */}
       <MapButton />
       
       <Footer />
+      
+      <VaccineAssistant />
     </div>
   );
 };
