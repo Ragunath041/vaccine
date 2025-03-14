@@ -31,7 +31,7 @@ export function Navbar() {
                   </Button>
                 </Link>
               ) : (
-                <Link to="/patient-dashboard">
+                <Link to="/parent-dashboard">
                   <Button variant="outline" size="sm" className="gap-1">
                     <User className="h-4 w-4" />
                     <span>Dashboard</span>

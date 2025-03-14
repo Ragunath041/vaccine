@@ -9,6 +9,7 @@ router.use(authMiddleware);
 // Get user profile
 router.get('/profile', getProfile);
 
+
 // Update user profile
 router.put('/profile', updateProfile);
 

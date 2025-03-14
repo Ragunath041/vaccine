@@ -6,6 +6,7 @@ export function Footer() {
   return (
     <footer className="bg-gray-50 border-t border-gray-200">
       <div className="container py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
+      <center>
         <div className="space-y-4">
           <Link to="/" className="flex items-center gap-2 font-bold text-xl text-vaccine-blue">
             <Syringe className="h-5 w-5" />
@@ -14,7 +15,7 @@ export function Footer() {
           <p className="text-gray-600 text-sm">
             Empowering parents to manage their children's vaccination journey with ease and confidence.
           </p>
-          <div className="flex space-x-4">
+          {/* <div className="flex space-x-4">
             <a href="#" className="text-gray-400 hover:text-vaccine-blue transition-colors">
               <Facebook className="h-5 w-5" />
               <span className="sr-only">Facebook</span>
@@ -27,10 +28,10 @@ export function Footer() {
               <Instagram className="h-5 w-5" />
               <span className="sr-only">Instagram</span>
             </a>
-          </div>
+          </div> */}
         </div>
-        
-        <div>
+        </center>
+        {/* <div>
           <h3 className="font-medium text-gray-900 mb-4">Quick Links</h3>
           <ul className="space-y-2 text-sm">
             <li>
@@ -59,9 +60,9 @@ export function Footer() {
               </Link>
             </li>
           </ul>
-        </div>
+        </div> */}
         
-        <div>
+        {/* <div>
           <h3 className="font-medium text-gray-900 mb-4">Services</h3>
           <ul className="space-y-2 text-sm">
             <li>
@@ -105,7 +106,7 @@ export function Footer() {
               <span className="text-gray-600">support@vaccicare.com</span>
             </li>
           </ul>
-        </div>
+        </div> */}
       </div>
       
       <div className="bg-gray-100 py-4 text-center text-sm text-gray-500">
