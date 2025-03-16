@@ -23,21 +23,6 @@ export function Navbar() {
         <nav className="hidden md:flex items-center gap-6">
           {user ? (
             <div className="flex items-center gap-4">
-              {role === "doctor" ? (
-                <Link to="/doctor-dashboard">
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <User className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Button>
-                </Link>
-              ) : (
-                <Link to="/patient-dashboard">
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <User className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Button>
-                </Link>
-              )}
               <Button 
                 onClick={logout} 
                 variant="ghost" 
@@ -72,14 +57,6 @@ export function Navbar() {
             <nav className="flex flex-col gap-4 mt-8">
               {user ? (
                 <>
-                  <Link 
-                    to={role === "doctor" ? "/doctor-dashboard" : "/patient-dashboard"} 
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-md transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <User className="h-5 w-5" />
-                    <span>Dashboard</span>
-                  </Link>
                   <Link 
                     to="/appointments" 
                     className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-md transition-colors"

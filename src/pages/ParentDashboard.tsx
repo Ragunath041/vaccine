@@ -19,9 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { SummaryCards } from "@/components/patient/SummaryCards";
 import { PatientTabs } from "@/components/patient/PatientTabs";
 import { Chatbot } from "@/components/patient/Chatbot";
-import { MapButton } from "@/components/patient/MapButton";
 import { MOCK_CHILDREN, MOCK_APPOINTMENTS, MOCK_VACCINATION_HISTORY } from "@/lib/mockData";
-import { VaccineAssistant } from "@/components/VaccineAssistant";
+import { children as childrenApi, appointments as appointmentsApi, vaccinationRecords as vaccinationRecordsApi, doctors as doctorsApi } from "@/services/api";
 
 // Add this constant at the top of your file, outside the component
 const DOCTORS = [
@@ -55,36 +54,28 @@ const ParentDashboard = () => {
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
+  const [doctors, setDoctors] = useState([]);
+  const [activeTab, setActiveTab] = useState("children");
 
   console.log("User data:", user);
 
   // Function to fetch children
   const fetchChildren = async () => {
     try {
-      // Make sure we have a user and id before making the request
-      if (!user || !user.id) {
-        console.log("No user ID available");
+      // Make sure we have a user before making the request
+      if (!user) {
+        console.log("No user available");
         return;
       }
 
-      const response = await fetch(`http://localhost:5000/api/children?parent_id=${user.id}`, {
-        headers: {
-          "Content-Type": "application/json"
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch children");
-      }
-
-      const data = await response.json();
-      setChildren(data);
+      const response = await childrenApi.getAll();
+      setChildren(response.data || []);
     } catch (error) {
       console.error("Error fetching children:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch children"
+        description: "Failed to fetch children data"
       });
     }
   };
@@ -92,41 +83,84 @@ const ParentDashboard = () => {
   // Function to fetch appointments
   const fetchAppointments = async () => {
     try {
-      // Make sure we have a user and id before making the request
-      if (!user || !user.id) {
-        console.log("No user ID available");
+      // Make sure we have a user before making the request
+      if (!user) {
+        console.log("No user available");
         return;
       }
 
-      // Update to filter by parent_id
-      const response = await fetch(`http://localhost:5000/api/appointments?parent_id=${user.id}`, {
-        headers: {
-          "Content-Type": "application/json"
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch appointments");
-      }
-
-      const data = await response.json();
-      console.log("Fetched appointments:", data); // Debug log
-      setAppointments(data);
+      const response = await appointmentsApi.getAll();
+      console.log("Fetched appointments:", response.data); // Debug log
+      setAppointments(response.data || []);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch appointments"
+        description: "Failed to fetch appointments data"
       });
     }
   };
 
-  // Fetch both children and appointments when component mounts
+  // Function to fetch doctors
+  const fetchDoctors = async () => {
+    try {
+      const response = await doctorsApi.getAll();
+      setDoctors(response.data);
+    } catch (error) {
+      console.error("Error fetching doctors:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch doctors"
+      });
+    }
+  };
+
+  // Function to fetch vaccination records
+  const fetchVaccinationRecords = async () => {
+    try {
+      const response = await vaccinationRecordsApi.getAll();
+      console.log("Fetched vaccination records:", response.data);
+      setVaccinationRecords(response.data || []);
+    } catch (error) {
+      console.error("Error fetching vaccination records:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch vaccination records"
+      });
+    }
+  };
+
+  const fetchVaccinationRecordsForChild = async (childId) => {
+    try {
+      if (!childId) {
+        console.log("No child ID provided");
+        return;
+      }
+
+      const response = await vaccinationRecordsApi.getByChild(childId);
+      console.log("Vaccination records for child:", response.data);
+      setVaccinationRecords(response.data);
+      setIsRecordsDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching vaccination records:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch vaccination records"
+      });
+    }
+  };
+
+  // Fetch data when component mounts
   useEffect(() => {
     if (user && role === "parent") {
       fetchChildren();
       fetchAppointments();
+      fetchDoctors();
+      fetchVaccinationRecords();
     }
   }, [user, role]);
   
@@ -149,21 +183,7 @@ const ParentDashboard = () => {
         return;
       }
 
-      // Get the parent_id from the logged-in user
-      const parentId = user?.id;
-      console.log("Parent ID:", parentId); // Debug log
-
-      if (!parentId) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Parent ID not available"
-        });
-        return;
-      }
-
       const childData = {
-        parent_id: parentId, // Explicitly include parent_id
         first_name: firstName,
         last_name: lastName,
         date_of_birth: dateOfBirth,
@@ -174,21 +194,8 @@ const ParentDashboard = () => {
 
       console.log("Sending child data:", childData); // Debug log
 
-      const response = await fetch("http://localhost:5000/api/children", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(childData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to add child");
-      }
-
-      const data = await response.json();
-      console.log("Response data:", data); // Debug log
+      const response = await childrenApi.create(childData);
+      console.log("Response data:", response.data); // Debug log
       
       // Refresh the children list
       await fetchChildren();
@@ -237,69 +244,21 @@ const ParentDashboard = () => {
         return;
       }
 
-      // Parse values to ensure they're correct format
-      const childId = parseInt(selectedChild);
-      const doctorId = parseInt(selectedDoctor);
-
-      console.log("Child ID (parsed):", childId);
-      console.log("Doctor ID (parsed):", doctorId);
-
-      if (isNaN(childId) || isNaN(doctorId)) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Invalid child or doctor selection"
-        });
-        return;
-      }
-
-      // Create appointment data with explicit types
       const appointmentData = {
-        child_id: childId,
-        doctor_id: doctorId,
-        appointment_date: appointmentDate,
-        appointment_time: appointmentTime,
-        status: "scheduled",
+        child_id: selectedChild,
+        doctor_id: selectedDoctor,
+        date: appointmentDate,
+        time: appointmentTime,
         reason: reason,
-        notes: notes || "Bring previous medical records"
+        notes: notes || null
       };
 
-      console.log("FINAL APPOINTMENT DATA:", JSON.stringify(appointmentData));
+      console.log("Sending appointment data:", appointmentData);
 
-      const response = await fetch("http://localhost:5000/api/appointments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(appointmentData)
-      });
+      const response = await appointmentsApi.create(appointmentData);
+      console.log("Appointment created:", response.data);
 
-      const responseText = await response.text();
-      console.log("Raw API Response:", responseText);
-      
-      if (!response.ok) {
-        let errorMessage = "Failed to book appointment";
-        try {
-          const errorData = JSON.parse(responseText);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If parsing fails, use the raw text
-          errorMessage = responseText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Error parsing response:", e);
-        data = { message: "Appointment created but response was not JSON" };
-      }
-
-      console.log("Appointment created:", data);
-
-      // Refresh appointments list
+      // Refresh appointments
       await fetchAppointments();
 
       toast({
@@ -324,402 +283,112 @@ const ParentDashboard = () => {
     }
   };
 
-  const fetchVaccinationRecords = async (childId) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/children/${childId}/vaccination-records`, {
-        headers: {
-          "Content-Type": "application/json"
-        },
-      });
+  // Map appointments data for PatientTabs component
+  const mappedAppointments = appointments.map(appointment => {
+    const child = children.find(c => (c.child_id || c.id) === appointment.child_id);
+    const doctor = doctors.find(d => d.id === appointment.doctor_id) || 
+                  DOCTORS.find(d => d.doctor_id === appointment.doctor_id);
+    
+    return {
+      id: appointment.appointment_id || appointment.id,
+      childName: child ? `${child.first_name} ${child.last_name}` : 'Unknown Child',
+      vaccineName: appointment.vaccine_name || 'General Checkup',
+      doctorName: doctor ? `Dr. ${doctor.firstName || doctor.first_name} ${doctor.lastName || doctor.last_name}` : 'Dr. Unknown Doctor',
+      date: appointment.appointment_date || appointment.date,
+      time: appointment.appointment_time || appointment.time,
+      status: appointment.status
+    };
+  });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch vaccination records");
-      }
+  // Map vaccination records data for PatientTabs component
+  const mappedVaccinationHistory = vaccinationRecords.map(record => {
+    const child = children.find(c => c.id === record.child_id);
+    
+    // Debug logs to help identify issues
+    console.log("Mapping vaccination record:", record);
+    console.log("Found child for record:", child);
+    
+    return {
+      id: record.id,
+      child_name: child ? `${child.first_name} ${child.last_name}` : 'Unknown Child',
+      vaccine_name: record.vaccine_name || 'Unknown Vaccine',
+      vaccination_date: record.vaccination_date,
+      status: record.status || 'completed',
+      child_id: record.child_id,
+      doctor_name: record.doctor_first_name && record.doctor_last_name 
+        ? `Dr. ${record.doctor_first_name} ${record.doctor_last_name}` 
+        : 'Unknown Doctor',
+      notes: record.notes || ''
+    };
+  });
 
-      const data = await response.json();
-      console.log("Fetched vaccination records:", data); // Debug log
-      setVaccinationRecords(data);
-      setIsRecordsDialogOpen(true);
-    } catch (error) {
-      console.error("Error fetching vaccination records:", error);
+  // Map children data for PatientTabs component
+  const mappedChildren = children.map(child => {
+    const childRecords = vaccinationRecords.filter(record => 
+      (record.child_id === child.id || record.child_id === child.child_id) && 
+      record.status === 'completed'
+    );
+    
+    const childAppointments = appointments.filter(app => 
+      (app.child_id === child.id || app.child_id === child.child_id) && 
+      (app.status === 'pending' || app.status === 'confirmed')
+    );
+    
+    return {
+      id: child.id || child.child_id,
+      name: `${child.first_name} ${child.last_name}`,
+      dateOfBirth: child.date_of_birth,
+      gender: child.gender,
+      completedVaccines: childRecords.length,
+      upcomingVaccines: childAppointments.length
+    };
+  });
+
+  // Handle scheduling a vaccine for a specific child
+  const handleScheduleVaccine = (childId: string) => {
+    // Switch to appointments tab
+    setActiveTab("appointments");
+    
+    // Set a small timeout to ensure the tab has changed before showing the toast
+    setTimeout(() => {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to fetch vaccination records"
+        title: "Schedule Vaccine",
+        description: "Please use the Book Appointment button to schedule a vaccine.",
       });
-    }
+    }, 100);
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <main className="flex-1 bg-gray-50 py-8 px-4">
-        <div className="container max-w-7xl">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Parent Dashboard</h1>
-              <p className="text-gray-600">Welcome back, {user.firstName} {user.lastName}</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Children</CardTitle>
-                <CardDescription>Manage your children's profiles</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {children.length > 0 ? (
-                    <div className="space-y-4">
-                      {children.map((child) => (
-                        <div key={child.id} className="p-4 border rounded-lg">
-                          <h3 className="font-semibold">{child.first_name} {child.last_name}</h3>
-                          <p className="text-sm text-gray-600">Date of Birth: {new Date(child.date_of_birth).toLocaleDateString()}</p>
-                          <p className="text-sm text-gray-600">Gender: {child.gender}</p>
-                          {child.blood_group && <p className="text-sm text-gray-600">Blood Group: {child.blood_group}</p>}
-                          {child.allergies && <p className="text-sm text-gray-600">Allergies: {child.allergies}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-gray-500">No children added yet</p>
-                  )}
-                  
-                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="w-full">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Child
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Child</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="firstName">First Name *</Label>
-                            <Input 
-                              id="firstName" 
-                              value={firstName}
-                              onChange={(e) => setFirstName(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="lastName">Last Name *</Label>
-                            <Input 
-                              id="lastName" 
-                              value={lastName}
-                              onChange={(e) => setLastName(e.target.value)}
-                              required
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-                          <Input 
-                            id="dateOfBirth" 
-                            type="date"
-                            value={dateOfBirth}
-                            onChange={(e) => setDateOfBirth(e.target.value)}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="gender">Gender *</Label>
-                          <select 
-                            id="gender"
-                            value={gender}
-                            onChange={(e) => setGender(e.target.value)}
-                            className="w-full border rounded-md p-2"
-                            required
-                          >
-                            <option value="">Select gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="bloodGroup">Blood Group</Label>
-                          <select
-                            id="bloodGroup"
-                            value={bloodGroup}
-                            onChange={(e) => setBloodGroup(e.target.value)}
-                            className="w-full border rounded-md p-2"
-                          >
-                            <option value="">Select blood group</option>
-                            <option value="A+">A+</option>
-                            <option value="A-">A-</option>
-                            <option value="B+">B+</option>
-                            <option value="B-">B-</option>
-                            <option value="AB+">AB+</option>
-                            <option value="AB-">AB-</option>
-                            <option value="O+">O+</option>
-                            <option value="O-">O-</option>
-                          </select>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="allergies">Allergies</Label>
-                          <Input 
-                            id="allergies" 
-                            value={allergies}
-                            onChange={(e) => setAllergies(e.target.value)}
-                            placeholder="Enter any allergies (optional)"
-                          />
-                        </div>
-                        
-                        <Button onClick={handleAddChild} className="w-full">
-                          Add Child
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Appointments</CardTitle>
-                <CardDescription>View and schedule appointments</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {appointments.length > 0 ? (
-                    <div className="space-y-4">
-                      {appointments.map((appointment) => {
-                        const child = children.find(c => (c.child_id || c.id) === appointment.child_id);
-                        const doctor = DOCTORS.find(d => d.doctor_id === appointment.doctor_id);
-
-                        return (
-                          <div key={appointment.appointment_id || appointment.id} className="p-4 border rounded-lg">
-                            <h3 className="font-semibold">
-                              {child ? `${child.first_name} ${child.last_name}` : 'Unknown Child'}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              Date: {new Date(appointment.appointment_date).toLocaleDateString()}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              Time: {appointment.appointment_time}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              Status: <span className="capitalize">{appointment.status}</span>
-                            </p>
-                            {appointment.reason && (
-                              <p className="text-sm text-gray-600">
-                                Reason: {appointment.reason}
-                              </p>
-                            )}
-                            <p className="text-sm text-gray-600">
-                              Doctor: Dr. {doctor ? `${doctor.first_name} ${doctor.last_name}` : 'Unknown Doctor'}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-center text-gray-500">No appointments scheduled</p>
-                  )}
-
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="w-full">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Book Appointment
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Book Appointment</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="child">Select Child *</Label>
-                          <select 
-                            id="child" 
-                            value={selectedChild}
-                            onChange={(e) => setSelectedChild(e.target.value)}
-                            className="w-full border rounded-md p-2"
-                            required
-                          >
-                            <option value="">Select a child</option>
-                            {children.map((child) => (
-                              <option key={child.id} value={child.child_id || child.id}>
-                                {child.first_name} {child.last_name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="doctor">Select Doctor *</Label>
-                          <select 
-                            id="doctor" 
-                            value={selectedDoctor}
-                            onChange={(e) => setSelectedDoctor(e.target.value)}
-                            className="w-full border rounded-md p-2"
-                            required
-                          >
-                            <option value="">Select a doctor</option>
-                            {DOCTORS.map((doctor) => (
-                              <option key={doctor.doctor_id} value={doctor.doctor_id}>
-                                Dr. {doctor.first_name} {doctor.last_name} - {doctor.specialization}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="appointmentDate">Date *</Label>
-                          <Input 
-                            id="appointmentDate" 
-                            type="date"
-                            value={appointmentDate}
-                            onChange={(e) => setAppointmentDate(e.target.value)}
-                            min={new Date().toISOString().split('T')[0]}
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="appointmentTime">Time *</Label>
-                          <Input 
-                            id="appointmentTime" 
-                            type="time"
-                            value={appointmentTime}
-                            onChange={(e) => setAppointmentTime(e.target.value)}
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="reason">Reason *</Label>
-                          <Input 
-                            id="reason" 
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            placeholder="Enter the reason for the appointment"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="notes">Notes</Label>
-                          <Input 
-                            id="notes" 
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Enter any additional notes"
-                          />
-                        </div>
-
-                        <Button onClick={handleBookAppointment} className="w-full">
-                          Book Appointment
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Vaccination Records</CardTitle>
-                <CardDescription>Track vaccination history</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {children.length > 0 ? (
-                    <div className="space-y-4">
-                      {children.map((child) => (
-                        <div key={child.id} className="p-4 border rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <h3 className="font-semibold">{child.first_name} {child.last_name}</h3>
-                              <p className="text-sm text-gray-600">
-                                Born: {new Date(child.date_of_birth).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => fetchVaccinationRecords(child.child_id || child.id)}
-                            >
-                              View Records
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-gray-500">No children added yet</p>
-                  )}
-
-                  <Dialog open={isRecordsDialogOpen} onOpenChange={setIsRecordsDialogOpen}>
-                    <DialogContent className="max-w-3xl">
-                      <DialogHeader>
-                        <DialogTitle>Vaccination Records</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        {vaccinationRecords.length === 0 ? (
-                          <p className="text-center text-gray-500">No vaccination records found</p>
-                        ) : (
-                          <div className="space-y-4">
-                            {vaccinationRecords.map((record) => (
-                              <div key={record.id} className="p-4 border rounded-lg">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-semibold">{record.vaccine_name}</h4>
-                                    <p className="text-sm text-gray-600">
-                                      Date: {new Date(record.vaccination_date).toLocaleDateString()}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                      Doctor: Dr. {record.doctor_first_name} {record.doctor_last_name}
-                                    </p>
-                                    {record.notes && (
-                                      <p className="text-sm text-gray-600 mt-2">
-                                        Notes: {record.notes}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <span className={`text-xs px-2 py-1 rounded-full ${
-                                    record.status === 'completed' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {record.status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-8">Parent Dashboard</h1>
+        
+        <SummaryCards 
+          childrenCount={children.length} 
+          upcomingAppointmentsCount={appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length}
+          completedVaccinationsCount={vaccinationRecords.filter(r => r.status === 'completed').length}
+        />
+        
+        <div className="mt-8">
+          <PatientTabs 
+            children={mappedChildren}
+            appointments={mappedAppointments}
+            vaccinationHistory={mappedVaccinationHistory}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onChildAdded={fetchChildren}
+            onAppointmentBooked={fetchAppointments}
+            onScheduleVaccine={handleScheduleVaccine}
+            onRefreshVaccinationHistory={fetchVaccinationRecords}
+          />
         </div>
       </main>
       
-      {/* <Chatbot /> */}
-      <MapButton />
+      <Chatbot />
       
       <Footer />
-      
-      <VaccineAssistant />
     </div>
   );
 };

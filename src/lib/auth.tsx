@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/services/api";
 
 // Types for our authentication context
 type User = {
@@ -38,9 +39,6 @@ type RegistrationData = {
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// API URL
-const API_URL = "http://localhost:5000/api";
-
 // Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -65,58 +63,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // Login function
   const login = async (email: string, password: string, loginRole: Role) => {
+    if (!loginRole) return;
+    
     setLoading(true);
+    console.log(`Attempting login with email: ${email}, role: ${loginRole}`);
     
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, role: loginRole }),
-      });
-
-      const data = await response.json();
-      console.log("Login response:", data); // Debug log
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      const userData = {
-        id: data.user.id || data.user.user_id, // Try both possible ID fields
-        email: data.user.email,
-        firstName: data.user.firstName,
-        lastName: data.user.lastName,
-        role: loginRole
-      };
-
-      console.log("Setting user data:", userData); // Debug log
-
-      setUser(userData);
-      setRole(loginRole);
+      // For a real application, this would be an API call to a backend
+      // For this demo, we're checking against localStorage
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      console.log('All users in localStorage:', users);
       
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("role", loginRole);
+      const foundUser = users.find((u: any) => u.email === email && u.role === loginRole);
+      console.log('Found user:', foundUser);
       
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${data.user.firstName}!`,
-      });
-      
-      // Redirect based on role
-      if (loginRole === "parent") {
-        navigate("/parent-dashboard");
-      } else if (loginRole === "doctor") {
-        navigate("/doctor-dashboard");
+      if (foundUser) {
+        // For testing purposes, we'll skip password validation
+        // In a real app, we would verify the password hash here
+        
+        const userData = {
+          id: foundUser.id,
+          email: foundUser.email,
+          firstName: foundUser.firstName,
+          lastName: foundUser.lastName,
+          role: loginRole
+        };
+        
+        // Generate a token (in a real app, this would come from the backend)
+        const token = `mock-token-${Date.now()}`;
+        
+        setUser(userData);
+        setRole(loginRole);
+        
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("role", loginRole);
+        
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${foundUser.firstName}!`,
+        });
+        
+        // Redirect based on role
+        if (loginRole === "parent") {
+          navigate("/parent-dashboard");
+        } else if (loginRole === "doctor") {
+          navigate("/doctor-dashboard");
+        }
+      } else {
+        throw new Error('Invalid email or password');
       }
     } catch (error) {
       console.error('Login error:', error);
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: error instanceof Error ? error.message : "Invalid email or password",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
       });
     } finally {
       setLoading(false);
@@ -128,26 +130,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      const response = await auth.register(data);
+      const result = response.data;
 
-      const result = await response.json();
+      const userData = {
+        id: result.user.id,
+        email: result.user.email,
+        firstName: result.user.firstName,
+        lastName: result.user.lastName,
+        role: data.role
+      };
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
-      }
-
-      setUser(result.user);
+      setUser(userData);
       setRole(data.role);
       
       // Store in localStorage
       localStorage.setItem("token", result.token);
-      localStorage.setItem("user", JSON.stringify(result.user));
+      localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("role", data.role);
       
       toast({
